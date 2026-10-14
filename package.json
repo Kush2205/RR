@@ -1,0 +1,13 @@
+{
+  "name": "ticketer",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "generate": "node generate.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "pdfkit": "^0.20.2",
+    "qrcode": "^1.5.4"
+  }
+}

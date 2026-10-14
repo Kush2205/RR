@@ -1,0 +1,52 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gate scanner</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  body { font: 16px system-ui, sans-serif; margin: 0; padding: 1rem; background: #111; color: #eee; }
+  #reader { width: 100%; max-width: 420px; margin: 0 auto; }
+  #out { margin: 1rem auto; max-width: 420px; padding: 1.25rem; border-radius: .6rem; background: #222;
+         font-size: 1.4rem; font-weight: 700; text-align: center; }
+  .ok { background: #1a7f37 !important; } .bad { background: #b42318 !important; }
+  input { width: 100%; max-width: 420px; padding: .7rem; font: inherit; box-sizing: border-box; display: block;
+          margin: .3rem auto; border-radius: .4rem; border: 1px solid #444; background: #1c1c1c; color: #eee; }
+  small { display: block; text-align: center; color: #888; margin-top: .75rem; }
+</style>
+<div id="out">Point at a pass</div>
+<div id="reader"></div>
+<input id="manual" placeholder="Or type a pass ID, press Enter">
+<small id="stat"></small>
+
+<script>
+  const show = (cls, msg) => {
+    out.className = cls;
+    out.textContent = msg;
+    navigator.vibrate?.(cls === 'ok' ? 120 : [100, 60, 100]);
+  };
+
+  const tally = () => fetch('/stats').then(r => r.json())
+    .then(s => stat.textContent = `${s.inside} of ${s.total} inside`).catch(() => {});
+
+  let busy = false;
+  async function check(raw) {
+    const id = (raw || '').trim();
+    if (busy || !id) return;
+    busy = true;
+    try {
+      const r = await fetch('/scan', { method: 'POST', headers: { 'content-type': 'application/json' },
+                                       body: JSON.stringify({ id }) });
+      const d = await r.json();
+      show(d.status === 'ok' ? 'ok' : 'bad', d.status === 'ok' ? `LET IN — ${d.label}` : `REFUSE — ${d.reason}`);
+      tally();
+    } catch {
+      show('bad', 'NO NETWORK — do not admit, rescan');   // never guess; a guess double-admits
+    }
+    setTimeout(() => (busy = false), 1200);
+  }
+
+  manual.onkeydown = (e) => { if (e.key === 'Enter') { check(manual.value); manual.value = ''; } };
+  tally();
+  new Html5Qrcode('reader').start({ facingMode: 'environment' }, { fps: 10, qrbox: 250 }, check)
+    .catch(() => show('bad', 'No camera — type IDs below'));
+</script>
